@@ -1,0 +1,2 @@
+auth_user.id,auth_user.first_name,auth_user.last_name,auth_user.email,auth_user.username,auth_user.password,auth_user.registration_key,auth_user.reset_password_key,auth_user.registration_id
+2,A,B,a@b.com,a@b.com,"pbkdf2(1000,20,sha512)$82e47735e7409087$e45f53893eab3c72f6026a419e7fdf355d7ce342",,,
