@@ -276,6 +276,8 @@ class RewheelApplication(Blueprint):
                 t = type(resource)
                 if issubclass(t,TableResource):
                     self.resource_manager.register(resource)
+                    if resource.private_args:
+                        resource.private_args.auth = self.auth
                     if self.realtime_endpoint and self.realtime_queue:
                         resource.app = self
                         resource.enable_realtime()

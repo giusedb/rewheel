@@ -7,7 +7,7 @@ from operator import *
 from .storages import Storage, NestedDict
 
 from flask import g as current
-from pydal.objects import Set
+from pydal.objects import Set, Field
 
 from exceptions import ValidationError, HTTP, Message
 
@@ -124,15 +124,15 @@ def sql(db, q, *fields, **kwargs):
     # log.debug(sql)
     return db.executesql(sql, as_dict=as_dict)
 
-def sql_decoded(q, *fields,**kwargs):
+def sql_decoded(db, q, *fields,**kwargs):
     if type(q) != Set:
-        q = current.db(q)
+        q = db(q)
     as_dict = kwargs.pop('as_dict',True)
     if as_dict:
         decoders = dict((field.name,field.type.decoder) for field in fields if type(field) is Field and hasattr(field.type,'decoder'))
     else:
         decoders = dict((n,field.type.decoder) for n,field in enumerate(fields) if type(field) is Field and hasattr(field.type,'decoder'))
-    ret = current.db.executesql(q._select(*fields, **kwargs), as_dict=as_dict)
+    ret = db.executesql(q._select(*fields, **kwargs), as_dict=as_dict)
     if as_dict:
         for idx, func in decoders.iteritems():
             for row in ret:

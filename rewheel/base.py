@@ -226,19 +226,19 @@ class PrivateArgs(object):
         :return:
         """
 
-        self.table = current.db.define_table('%s_private' % resource.table._tablename,
+        self.db = resource.db
+        self.table = self.db.define_table('%s_private' % resource.table._tablename,
                                              Field('refs', resource.table),
                                              Field('auth_user', current.db.auth_user),
                                              *fields)
         if 'mysql' in type(current.db._adapter).__name__.lower():
             try:
-                current.db.executesql('alter table %s add constraint unique (refs,auth_user)' % self.table._tablename)
+                self.db.executesql('alter table %s add constraint unique (refs,auth_user)' % self.table._tablename)
             except:
                 pass
         self.select_columns = (self.table.refs,) + tuple(fields)
         self.descibe_columns = fields
         self.resource_name = resource.name
-        self.db = resource.db
 
     def list(self, ids, merge_dict=None):
         """
@@ -247,7 +247,7 @@ class PrivateArgs(object):
         :param merge_dict: partial dict to merge results
         :return: {'PA' : {<resource table> { <id> : {param args}}}
         """
-        objs = sql(self.db, self.table.refs.belongs(ids) & (self.table.auth_user == current.auth.user_id),
+        objs = sql(self.db, self.table.refs.belongs(ids) & (self.table.auth_user == self.auth.user_id),
                    *self.select_columns)
         ret = {self.resource_name: dict((x.pop('refs'), x) for x in objs)}
         if merge_dict:
@@ -290,7 +290,7 @@ class PrivateArgs(object):
             self.table.insert(auth_user=user_id, refs=id, **fields)
 
     def delete(self, ids):
-        current.db(self.table.refs.belongs(ids)).delete()
+        self.db(self.table.refs.belongs(ids)).delete()
 
 
 class TableResource(Resource):
@@ -1074,8 +1074,8 @@ class ManyToManyRelation(object):
         self.table._resource = self
         self.name = self.table_name
         self.resource_order = {
-            resource1: lambda x: (x[1], x[0]),
-            resource2: lambda x: x,
+            resource2: lambda x: (x[1], x[0]),
+            resource1: lambda x: x,
         }
         self.indexName = '%s/%s' % tuple(imap(attrgetter('name'), (resource1, resource2)))
         self.first = lambda r: 0 if r != self.resource1 else 1
@@ -1142,7 +1142,7 @@ class ManyToManyRelation(object):
             for idx, had in enumerate((self.left_has, self.right_has)):
                 if had:
                     table, field_name = had
-                    current.db(table.id.belongs(set(imap(itemgetter(idx), collection)))).update(**{field_name: True})
+                    self.db(table.id.belongs(set(imap(itemgetter(idx), collection)))).update(**{field_name: True})
             current.update_log.extend(rt_buff)
         return rt_buff
         # map(current.log_update.setdefault('m2m', {}).setdefault(self.js_name, {}).setdefault('add', []).append, rt_buff)
@@ -1188,7 +1188,7 @@ class ManyToManyRelation(object):
                 else:
                     res = set(id) if id else None
                 if res:
-                    current.db(table.id.belongs(res)).update(**{field_name: False})
+                    self.db(table.id.belongs(res)).update(**{field_name: False})
 
         if self.realtime_enabled:
             current.update_log.extend(rt_buff)
