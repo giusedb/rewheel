@@ -40,7 +40,7 @@ class RedisSessionInterface(SessionInterface):
         return timedelta(days=1)
 
     def open_session(self, app, request):
-        sid = request.headers.get('_token_') or request.cookies.get(app.session_cookie_name)
+        sid = request.headers.get('token') or request.cookies.get(app.session_cookie_name)
         if not sid:
             sid = self.generate_sid()
             return self.session_class(sid=sid, new=True)

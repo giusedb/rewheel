@@ -15,10 +15,10 @@ from .push import share_user
 from time import time
 from logging import getLogger
 from traceback import format_tb
+from flask_cors import CORS, cross_origin
 
 
 log = getLogger('rewheel')
-
 
 class ReturnObject:
     """
@@ -71,6 +71,7 @@ class RewheelApplication(Blueprint):
             return 'rewheel main'
 
         @self.route('/api/logout')
+        @cross_origin()
         def logout():
             if request.cookies:
                 self.auth.logout()
@@ -87,6 +88,7 @@ class RewheelApplication(Blueprint):
             return Response(jdumps(dict(error = 'login have to be run on POST method')),401,content_type=json_mime)
 
         @self.route('/api/login',methods=['POST'])
+        @cross_origin(vary_header = True, allow_headers=['token','application'])
         def login():
             # checking all arguments
             if not all(imap(request.values.__contains__,('username','password'))):
@@ -102,8 +104,9 @@ class RewheelApplication(Blueprint):
             # is user is accepted return token
             return self.connection_status(token=str(token), user_id = user_id)
 
-        @self.route(r'/<resource_name>/<verb>/<path:args>',methods = ['GET','POST'])
-        @self.route(r'/<resource_name>/<verb>',methods = ['GET','POST'])
+        @self.route(r'/<resource_name>/<verb>/<path:args>',methods = ['GET','POST','OPTIONS'])
+        @self.route(r'/<resource_name>/<verb>',methods = ['GET','POST','OPTIONS'])
+        @cross_origin()
         @self.auth.requires_login
         def restful(resource_name, verb, args = ''):
             """
@@ -150,14 +153,16 @@ class RewheelApplication(Blueprint):
             return Response('{"error" : "Resource %s not found"}' % resource_name, 404,content_type=json_mime)
 
         @self.route(r'/api/status',methods = ['GET','POST'])
+        @cross_origin()
         def api_status():
-            from random import randrange
-            from time import sleep
-            if randrange(0,2):
-                sleep(1)
+            # from random import randrange
+            # from time import sleep
+            # if randrange(0,2):
+            #     sleep(1)
             return self.connection_status()
 
         @self.route(r'/share_user')
+        @cross_origin()
         def user_share():
             share_user(self)
             return ''
