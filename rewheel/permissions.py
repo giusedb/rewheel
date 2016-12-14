@@ -103,6 +103,7 @@ class DirectPermission(Permission):
         self.id_func = id_func
         self.traversing = []
         self.auth = app.auth
+        self.db = app.db
 
     def __call__(self, func):
         res = func.im_self

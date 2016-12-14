@@ -1,0 +1,14 @@
+Metadata-Version: 1.1
+Name: rewheel
+Version: 0.1
+Summary: Rewheel Flask modules
+Home-page: http://www.demalogic.it
+Author: Giuseppe Di Bona
+Author-email: giusedb@gmail.com
+License: UNKNOWN
+Description: UNKNOWN
+Keywords: web realtime realtime-web full-realtime rest restful
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Topic :: Web framework
+Classifier: License :: OSI Approved :: BSD License

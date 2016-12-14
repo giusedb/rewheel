@@ -68,7 +68,7 @@ class RewheelApplication(Blueprint):
             Useless
             :return:
             """
-            return 'rewheel main'
+            return 'rewheel main <script type="javascript">pippo = 10</script>'
 
         @self.route('/api/logout')
         @cross_origin()
