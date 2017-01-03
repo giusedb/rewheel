@@ -185,7 +185,7 @@ class DelegatePermission(DirectPermission):
         self.field = traversing[0]
         self.auth = app.auth
         self.db = self.auth.db
-        self.sql = app.sql
+        self.sql = partial(sql,self.db)
 
     def __call__(self, func):
         ret = super(DelegatePermission,self).__call__(func)
@@ -230,7 +230,7 @@ class DelegatePermission(DirectPermission):
         :return: dict as { id : { group set }}
         """
         fid = itemgetter(self.field)
-        pt = current.db.auth_permission
+        pt = self.db.auth_permission
 
         # indexing id by permission based key field
         idx_field_id = dict((field,set(imap(itemgetter('id'),group))) for field,group in groupby(sorted(items,key=fid),fid))

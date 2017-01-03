@@ -10,8 +10,9 @@ def rt_command(func, app, *args, **kwargs):
     app.red.publish(app.realtime_queue, pdumps((app.name, session.sid, func, args, kwargs)))
 
 def share_user(app):
-    auth = app.auth
-    app.red.hset('SES%s' % app.name, session.sid, pdumps([auth.user_id,map(int,auth.user_groups.keys())]))
+    return
+    # auth = app.auth
+    # app.red.hset('SES%s' % app.name, session.sid, pdumps([auth.user_id,map(int,auth.user_groups.keys())]))
 
 
 def mk_realtime_buffer():

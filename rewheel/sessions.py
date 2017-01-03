@@ -7,6 +7,7 @@ from uuid import uuid4
 from redis import Redis
 from werkzeug.datastructures import CallbackDict
 from flask.sessions import SessionInterface, SessionMixin
+from .import_hook import jloads
 from .utils import json_mime
 
 
@@ -40,30 +41,30 @@ class RedisSessionInterface(SessionInterface):
         return timedelta(days=1)
 
     def open_session(self, app, request):
-        sid = request.headers.get('token') or request.cookies.get(app.session_cookie_name)
+        if request.content_type == 'text/plain' and request.data:
+            request._cached_json = jloads(request.data)
+        sid = request.values.get('__token__')
+        if not sid:
+            j = request.get_json()
+            if j:
+                sid = j.pop('__token__', None)
+        application = request.blueprint
         if not sid:
             sid = self.generate_sid()
-            return self.session_class(sid=sid, new=True)
-        val = self.redis.get(self.prefix + sid)
-        if val is not None:
-            data = self.serializer.loads(val)
-            return self.session_class(data, sid=sid)
-        return self.session_class(sid=sid, new=True)
+            sess = self.session_class(sid=sid, new=True)
+        else:
+            val = self.redis.hget('SES %s' % application, sid)
+            if val is not None:
+                data = self.serializer.loads(val)
+                sess =  self.session_class(data, sid=sid)
+            else:
+               sess = self.session_class(sid=sid, new=True)
+        sess.application = application
+        return sess
 
     def save_session(self, app, session, response):
-        domain = self.get_cookie_domain(app)
         if session is None:
-            self.redis.delete(self.prefix + session.sid)
-            if session.modified:
-                response.delete_cookie(app.session_cookie_name,
-                                       domain=domain)
+            self.redis.hdel('SES %s' % session.application, session.sid)
             return
-        redis_exp = self.get_redis_expiration_time(app, session)
-        cookie_exp = self.get_expiration_time(app, session)
         val = self.serializer.dumps(dict(session))
-        self.redis.setex(self.prefix + session.sid, val,
-                         int(redis_exp.total_seconds()))
-        if not response.mimetype == json_mime:
-            response.set_cookie(app.session_cookie_name, session.sid,
-                                expires=cookie_exp, httponly=True,
-                                domain=domain)
+        self.redis.hset('SES %s' % session.application, session.sid, val)

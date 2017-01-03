@@ -87,7 +87,7 @@ class RewheelApplication(Blueprint):
         def login_get():
             return Response(jdumps(dict(error = 'login have to be run on POST method')),401,content_type=json_mime)
 
-        @self.route('/api/login',methods=['POST'])
+        @self.route('/api/login',methods=['POST','OPTIONS'])
         @cross_origin(vary_header = True, allow_headers=['token','application'])
         def login():
             # checking all arguments
@@ -100,6 +100,9 @@ class RewheelApplication(Blueprint):
             # if user is not logged in return appropriate HTTP code
             if not token:
                 return Response(jdumps({'error' : 'Unknown user or wrong password'}),401, content_type=json_mime)
+
+            # share_user
+            share_user(self)
 
             # is user is accepted return token
             return self.connection_status(token=str(token), user_id = user_id)
@@ -145,7 +148,7 @@ class RewheelApplication(Blueprint):
                         else:
                             return Response('Internal server error', status=500)
                     ret = current.response.text
-                    if type(ret) is dict:
+                    if type(ret) in (dict,list):
                         return Response(jdumps(ret),content_type='application/json')
                     return ret
                 else:
@@ -208,9 +211,14 @@ class RewheelApplication(Blueprint):
         )), mimetype=json_mime,content_type=json_mime)
 
     def get_args(self,request):
-        args = dict(request.values.iteritems())
-        if request.data:
-            args.update(jloads(request.data))
+        args = request.get_json()
+        if args.__class__ is dict:
+            return args
+        args = request.values.get('args')
+        if args:
+            return jloads(args)
+        if not args:
+            args = dict(request.values.iteritems())
         return args
 
 

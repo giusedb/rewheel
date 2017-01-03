@@ -51,6 +51,14 @@ class ResourceManager(object):
     #         cls._instance = object.__new__(cls)
     #     return cls._instance
 
+    def __contains__(self, resource):
+        """
+        Check if a resource is registered in this resource manager
+        :param resource: Resource instance
+        :return: bool:
+        """
+        return resource in self.__resources or any(resource in x for x in self._ResourceManager__m2m)
+
     def get_resources(self):
         return self.__resources.keys()
 
@@ -58,6 +66,7 @@ class ResourceManager(object):
         return self._empty.copy()
 
     def register(self, resource, name=None):
+        resource.resource_manager = self
         if not name:
             name = resource.name
         self.__resources[name] = resource
@@ -508,7 +517,7 @@ class TableResource(Resource):
         :param kwargs: unused
         :return: dictionary like {<object id> : [<permission_name>,<permission_name>,...]}
         """
-        auth = current.auth
+        auth = self.app.auth
         # checking all objects
         p = self.db.auth_permission
         if type(ids) in (list, tuple, set):
@@ -814,7 +823,7 @@ class TableResource(Resource):
                         id=field.name,
                     )
                     for field in model._references if
-                    field.referent.table._tablename not in m2m and (field.readable or field.writable)
+                        field.referent.table._tablename not in m2m and (field.readable or field.writable) and field.referent in self.resource_manager
                 ),
                 referencedBy=tuple(
                     dict(
@@ -826,7 +835,7 @@ class TableResource(Resource):
                         id=field.name,
                     )
                     for field in model._referenced_by if
-                    field.table._tablename not in m2m and (field.readable or field.writable)
+                        field.table._tablename not in m2m and (field.readable or field.writable) and field.referent in self.resource_manager
                 ),
                 fieldOrder=self.field_order,
                 extra_verbs=self.extra_verbs,
@@ -853,7 +862,7 @@ class TableResource(Resource):
         :param id: id dell'oggetto sul quale si vogliono modificare i permessi
         :param permissions: dizionario dei permessi {group_id, [<permesso1>,<permesso2>,..]}
         """
-        auth = current.auth
+        auth = self.app.auth
         pt = self.db.auth_permission
         actual_permissions = dict((gid, set(imap(ig1, g))) for gid, g in groupby(
             self.sql((pt.record_id == id) & (pt.table_name == self.table._tablename), pt.group_id, pt.name, as_dict=False,
@@ -882,7 +891,7 @@ class TableResource(Resource):
         for p in (p for p in self.inv_minimals if p.permission in minimal_permissions):
             minimal_permissions[p.permission].add(p)
 
-        if realtime_enabled:
+        if self.realtime_enabled:
             related_objects = {}
             if minimal_changed:
                 for perm_name, groups in minimal_changed.iteritems():
@@ -912,7 +921,7 @@ class TableResource(Resource):
                     positive_groups = set(k for k, p in permissions.iteritems() if perm_name in p)
                     negative_groups = set(k for k, p in permissions.iteritems() if perm_name not in p)
                     # if positive_groups and negative_groups:
-                    current.rt_permissions.append(('send_xor', positive_groups, negative_groups,
+                    current.rt_permissions.append(('send_xor', self.app, positive_groups, negative_groups,
                                                    insert_message[perm_name], delete_message[perm_name]))
                     # elif positive_groups:
                     #     rt_command('send_groups',insert_message[perm_name],map(int,positive_groups))
@@ -927,7 +936,7 @@ class TableResource(Resource):
                          imap(ig2, ifilter(lambda x: x[0] == 'inserted' and x[1] == self, current.update_log))):
                 actual_permissions = {}
 
-            current.rt_permissions.append(['send_permissions', self.name, id, permissions, actual_permissions])
+            current.rt_permissions.append(['send_permissions',self.app, self.name, id, permissions, actual_permissions])
             # rt_command('send_permissions',self.name,id,permissions,actual_permissions)
 
         # self.db.commit()

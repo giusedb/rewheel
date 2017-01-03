@@ -5,7 +5,7 @@ from .validators import *
 from .utils import Storage, sql, column
 from uuid import uuid4
 from flask import session, redirect
-from pydal.objects import Field
+from pydal.objects import Field, Set, Query
 from dalproxy import find_db
 from logging import getLogger
 from .utils import current
@@ -197,6 +197,7 @@ class Auth(object):
     def user_id(self):
         return session.get('user_id')
 
+
     @property
     def token(self):
         return session.sid
@@ -208,3 +209,133 @@ class Auth(object):
             return redirect(self.app.url_prefix + '/' + self.login_url)
         wrapper.__name__ = func.__name__
         return wrapper
+
+    def accessible_query(self, name, table, user_id=None):
+        """
+        Returns a query with all accessible records for user_id or
+        the current logged in user
+        this method does not work on GAE because uses JOIN and IN
+
+        Example:
+            Use as::
+
+                db(auth.accessible_query('read', db.mytable)).select(db.mytable.ALL)
+
+        """
+        if not user_id:
+            user_id = self.user_id
+        db = self.db
+        if isinstance(table, str) and table in self.db.tables():
+            table = self.db[table]
+        elif isinstance(table, (Set, Query)):
+            # experimental: build a chained query for all tables
+            if isinstance(table, Set):
+                cquery = table.query
+            else:
+                cquery = table
+            tablenames = db._adapter.tables(cquery)
+            for tablename in tablenames:
+                cquery &= self.accessible_query(name, tablename,
+                                                user_id=user_id)
+            return cquery
+        if not isinstance(table, str) and \
+                self.has_permission(name, table, 0, user_id):
+            return table.id > 0
+        membership = db.auth_membership
+        permission = db.auth_permission
+        query = table.id.belongs(
+            db(membership.user_id == user_id)
+            (membership.group_id == permission.group_id)
+            (permission.name == name)
+            (permission.table_name == table)
+                ._select(permission.record_id))
+        return query
+
+
+    def has_permission(
+            self,
+            name='any',
+            table_name='',
+            record_id=0,
+            user_id=None,
+            group_id=None,
+    ):
+        """
+        Checks if user_id or current logged in user is member of a group
+        that has 'name' permission on 'table_name' and 'record_id'
+        if group_id is passed, it checks whether the group has the permission
+        """
+
+        if not group_id and self.settings.everybody_group_id and \
+                self.has_permission(
+                    name, table_name, record_id, user_id=None,
+                    group_id=self.settings.everybody_group_id):
+            return True
+
+        if not user_id and not group_id and self.user:
+            user_id = self.user.id
+        if user_id:
+            membership = self.db.auth_membership
+            rows = self.db(membership.user_id
+                           == user_id).select(membership.group_id)
+            groups = set([row.group_id for row in rows])
+            if group_id and not group_id in groups:
+                return False
+        else:
+            groups = set([group_id])
+        permission = self.db.auth_permission
+        rows = self.db(permission.name == name)(permission.table_name
+                                                == str(table_name))(permission.record_id
+                                                                    == record_id).select(permission.group_id)
+        groups_required = set([row.group_id for row in rows])
+        if record_id:
+            rows = self.db(permission.name
+                           == name)(permission.table_name
+                                    == str(table_name))(permission.record_id
+                                                        == 0).select(permission.group_id)
+            groups_required = groups_required.union(set([row.group_id
+                                                         for row in rows]))
+        if groups.intersection(groups_required):
+            r = True
+        else:
+            r = False
+        return r
+
+    def add_permission(
+        self,
+        group_id,
+        name='any',
+        table_name='',
+        record_id=0,
+        ):
+        """
+        Gives group_id 'name' access to 'table_name' and 'record_id'
+        """
+
+        permission = self.db.auth_permission
+        record = self.db(permission.group_id == group_id)(permission.name == name)(permission.table_name == str(table_name))(
+                permission.record_id == long(record_id)).select(limitby=(0,1), orderby_on_limitby=False).first()
+        if record:
+            id = record.id
+        else:
+            id = permission.insert(group_id=group_id, name=name,
+                                   table_name=str(table_name),
+                                   record_id=long(record_id))
+        return id
+
+    def del_permission(
+        self,
+        group_id,
+        name='any',
+        table_name='',
+        record_id=0,
+        ):
+        """
+        Revokes group_id 'name' access to 'table_name' and 'record_id'
+        """
+
+        permission = self.db.auth_permission
+        return self.db(permission.group_id == group_id)(permission.name
+                 == name)(permission.table_name
+                           == str(table_name))(permission.record_id
+                 == long(record_id)).delete()
