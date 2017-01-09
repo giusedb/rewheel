@@ -808,7 +808,6 @@ class TableResource(Resource):
                     type=getattr(field, 'wtype',
                                  field.type.type if isinstance(field.type, SQLCustomType) else field.type.split('(')[
                                      0]),
-                    # w2pwidget=field.widget,
                 )) for field in fields),
                 doc=self.doc or self.__doc__,
                 representation=re_format_fields.findall(model._format) if model._format else [],
@@ -847,6 +846,9 @@ class TableResource(Resource):
             for field in ifilter(attrgetter('default'), fields):
                 if not isCallable(field.default):
                     ret[model._tablename]['fields'][field.name].setdefault('options', {})['default'] = field.default
+            # add custom widgets
+            for field in ifilter(attrgetter('widget'),fields):
+                ret[model._tablename]['fields'][field.name]['widget'] = field.widget
             self._description = ret
         ret = self._description
         # adding default values

@@ -16,9 +16,13 @@ setup(name='rewheel',
       ],
       keywords="web realtime realtime-web full-realtime rest restful",
       install_requires=[
-        'Flask',
-        'pyDAL',
-        'redis',
-        'ujson',
+          'Flask',
+          'pyDAL',
+          'redis',
+          'ujson',
+          'sockjs-tornado',
+          'flask-cors',
+          'logging-tree',
+          'pyyaml',
       ]
      )
