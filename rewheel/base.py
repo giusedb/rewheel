@@ -714,7 +714,7 @@ class TableResource(Resource):
         :param _check_permissions:
         :param _base_permissions:
         :param kwargs:
-        :return:
+        :return: int: object id
         """
         if multiple:
             # TODO effettuare prima la validazione di tutti e poi effettuare l'inserimento di tutti
@@ -747,6 +747,7 @@ class TableResource(Resource):
                 group_id = auth.id_group('user_%s' % auth.user_id)
                 # granting all permission to creator
                 self.set_permissions(id, {group_id: self.all_permissions}, _check_permissions=False)
+        current.response.text = str(id)
         return id
 
     @put.func_id

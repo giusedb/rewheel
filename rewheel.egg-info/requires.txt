@@ -2,3 +2,7 @@ Flask
 pyDAL
 redis
 ujson
+sockjs-tornado
+flask-cors
+logging-tree
+pyyaml
