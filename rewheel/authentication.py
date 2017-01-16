@@ -4,7 +4,7 @@ from rewheel.push import share_user
 from .validators import *
 from .utils import Storage, sql, column
 from uuid import uuid4
-from flask import session, redirect
+from flask import session, redirect, request
 from pydal.objects import Field, Set, Query
 from dalproxy import find_db
 from logging import getLogger
@@ -172,9 +172,9 @@ class Auth(object):
         Log out user and erase session
         :return: None
         """
-        for key in session.keys():
-            del session[key]
-        # session.delete()
+#        for key in session.keys():
+#            del session[key]
+        session.clear()
 
     def id_group(self, group_name):
         """

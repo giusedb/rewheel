@@ -318,7 +318,7 @@ class TableResource(Resource):
         if self.virtual_fields:
             row.update((f, self.table[f].f(row)) for f in self.virtual_fields)
 
-    def __init__(self, table, permissions=None, field_order=[], caching=None, private_args=[], realtime_endpoint=None):
+    def __init__(self, app, table_name, fields=None, permissions=None,  field_order=[], caching=None, private_args=[], realtime_endpoint=None, **table_args):
         """
         :param table: dal.Table object to wrap.
         :param permissions: dictionary for permissions {<verb> : [permission1,permission2]}
@@ -339,8 +339,14 @@ class TableResource(Resource):
             satisfied.
         :param private_args: web2py Field list of private args
         """
-        # web2py reference fix
-        for field in itemgetter(*table._fields)(table):
+        self.db = db = app.db
+        if type(table_name) is str:
+            self.table = table = db.define_table(table_name, *fields, **table_args)
+        else:
+            self.table = table = table_name
+
+        # dal reference fix
+        for field in itemgetter(*self.table._fields)(self.table):
             if type(field.type) is str and field.type.startswith('reference') and not getattr(field, 'referent', False):
                 field.referent = table._db[field.type.split(' ')[-1]]._id
                 table._references.append(field)
@@ -357,8 +363,7 @@ class TableResource(Resource):
         self.realtime_enabled = False
         self.table = table
         self.resources_has = {}
-        self.db = table._db
-        pt = self.db.auth_permission
+        pt = db.auth_permission
 
         # self.table.__class__ = DynamicTable
         self.__doc__ = self.table._tablename

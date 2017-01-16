@@ -1,6 +1,6 @@
 import sys
 from itertools import ifilter, imap
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 from flask import Blueprint, request, Response, redirect
 from redis import Redis
 
@@ -26,6 +26,15 @@ class ReturnObject:
     """
     text = ''
 
+default_auth_permissions = dict(
+    auth_user = dict(
+
+    ),
+    auth_group = dict(),
+    auth_membership = dict(),
+    auth_permissions = dict(),
+
+)
 
 class RewheelApplication(Blueprint):
     """
@@ -35,7 +44,7 @@ class RewheelApplication(Blueprint):
     def __init__(self, name, import_name, static_folder=None,
                  static_url_path=None, template_folder=None,
                  url_prefix=None, subdomain=None, url_defaults=None,
-                 root_path=None, config=None):
+                 root_path=None, config=None, auth_permissions=dict()):
         """
         Create reWheel application as a blueprint
         :param name:
@@ -46,6 +55,7 @@ class RewheelApplication(Blueprint):
         :param url_prefix:
         :param subdomain:
         :param url_defaults:
+        :param auth_permissions:
         :param root_path:
         """
         self._config = config or {}
@@ -61,6 +71,8 @@ class RewheelApplication(Blueprint):
         self.resource_manager = ResourceManager()
         self._create_db, self._define_db, self._register_resource = None, [], []
         self.requires_login = self.auth.requires_login
+        self.auth_permissions = dict((k,dict((x,auth_permissions.get(k,{}).get(x, default_auth_permissions[k].get(x))) for x in set(v).union(auth_permissions.get(k,(),)))) for k,v  in default_auth_permissions.iteritems())
+
 
         @self.route(r'/')
         def main():
@@ -68,19 +80,16 @@ class RewheelApplication(Blueprint):
             Useless
             :return:
             """
-            return 'rewheel main <script type="javascript">pippo = 10</script>'
+            return 'rewheel main'
 
-        @self.route('/api/logout')
+        @self.route('/api/logout', methods=['POST'])
         @cross_origin()
         def logout():
+            self.auth.logout()
             if request.cookies:
-                self.auth.logout()
                 return redirect(self.url_prefix + '/' + self.auth.login_url)
             else:
-                if session.get('user_id'):
-                    return Response(jdumps(dict(result = 'Logged out')),200)
-                else:
-                    return Response(jdumps(dict(error = 'You are not logged in')),400)
+                return Response(jdumps(dict(result = 'Logged out')),200)
 
 
         @self.route('/api/login')
@@ -206,7 +215,7 @@ class RewheelApplication(Blueprint):
             user_id=user_id,
             apiEndPoint=self.url_prefix,
             templates =  '%s/templates/' % (self.static_url_path or '/static'),
-            realtimeEndPoint=self.realtime_endpoint,
+            realtimeEndPoint= self.realtime_endpoint if user_id else None,
             application=self.name,
         )), mimetype=json_mime,content_type=json_mime)
 
@@ -276,6 +285,18 @@ class RewheelApplication(Blueprint):
 
         log.debug('creating authentication tables')
         self.auth.define_tables(db)
+
+        log.debug('creating auth resources')
+        for table in itemgetter('auth_user','auth_group')(db):
+            self.resource_manager.register(TableResource(self,table,permissions=self.auth_permissions))
+
+        log.debug('setting auth_membership as ManyToMany (auth_user,auth_group)')
+        self.resource_manager.register_m2m( ManyToManyRelation (
+            self.resource_manager.resource('auth_user'),
+            self.resource_manager.resource('auth_group'),
+            connection_table= db.auth_membership,
+            fields=(db.auth_user.id, db.auth_membership.id),
+        ))
 
         log.debug('defining and migrating tables')
         for func in self._define_db:

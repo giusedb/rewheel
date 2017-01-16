@@ -7,8 +7,10 @@ from uuid import uuid4
 from redis import Redis
 from werkzeug.datastructures import CallbackDict
 from flask.sessions import SessionInterface, SessionMixin
+from flask import request
 from .import_hook import jloads
 from .utils import json_mime
+
 
 
 class RedisSession(CallbackDict, SessionMixin):
@@ -20,6 +22,15 @@ class RedisSession(CallbackDict, SessionMixin):
         self.sid = sid
         self.new = new
         self.modified = False
+        self.cleared = False
+
+    def clear(self):
+        """
+        Clear session and mark it from removal
+        :return:
+        """
+        super(RedisSession, self).clear()
+        self.cleared = True
 
 
 class RedisSessionInterface(SessionInterface):
@@ -63,8 +74,10 @@ class RedisSessionInterface(SessionInterface):
         return sess
 
     def save_session(self, app, session, response):
-        if session is None:
+        if session is None or session.cleared:
             self.redis.hdel('SES %s' % session.application, session.sid)
             return
         val = self.serializer.dumps(dict(session))
         self.redis.hset('SES %s' % session.application, session.sid, val)
+
+
