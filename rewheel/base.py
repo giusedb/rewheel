@@ -1090,6 +1090,7 @@ class ManyToManyRelation(object):
                                                               *imap(self.resource_fields.get, resources))
         self.table._resource = self
         self.name = self.table_name
+        self.realtime_enabled = resource1.realtime_enabled or resource2.realtime_enabled
         self.resource_order = {
             resource2: lambda x: (x[1], x[0]),
             resource1: lambda x: x,

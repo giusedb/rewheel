@@ -258,6 +258,15 @@ class RewheelApplication(Blueprint):
         :return:
         """
 
+        def mkperms(permission):
+            """
+            Make permission object from tuple
+            :param permission:
+            :return:
+            """
+            if permission:
+                return permission[0](self, *permission[1:])
+
         # getting correct config
         config = NestedDict(config)
         config = config.get(self.name,config)
@@ -288,14 +297,17 @@ class RewheelApplication(Blueprint):
 
         log.debug('creating auth resources')
         for table in itemgetter('auth_user','auth_group')(db):
-            self.resource_manager.register(TableResource(self,table,permissions=self.auth_permissions))
+            # create permission dict
+            permissions = dict((k,mkperms(v)) for k,v in self.auth_permissions[table._tablename].iteritems())
+
+            self.resource_manager.register(TableResource(self,table,permissions=permissions))
 
         log.debug('setting auth_membership as ManyToMany (auth_user,auth_group)')
         self.resource_manager.register_m2m( ManyToManyRelation (
             self.resource_manager.resource('auth_user'),
             self.resource_manager.resource('auth_group'),
             connection_table= db.auth_membership,
-            fields=(db.auth_user.id, db.auth_membership.id),
+            fields=(db.auth_membership.user_id, db.auth_membership.group_id),
         ))
 
         log.debug('defining and migrating tables')
