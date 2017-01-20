@@ -1,20 +1,41 @@
 import os
 from rewheel.push import share_user
-
 from .validators import *
 from .utils import Storage, sql, column
 from uuid import uuid4
 from flask import session, redirect, request
-from pydal.objects import Field, Set, Query
-from dalproxy import find_db
+from pydal.objects import Set, Query
 from logging import getLogger
 from .utils import current
+from .base import TableResource, verb
+from .dalfix import Field
 
 log = getLogger('rewheel.authentication')
 
 AUTHS = {}
+user_cache = {} # {id : user db instace}
 
 is_not_empty = IS_NOT_EMPTY()
+
+class UserResource(TableResource):
+    """
+    User resource definition
+    """
+    copy_email = False
+    @verb
+    def put(self, multiple=None, _check_permissions=True, _base_permissions=True, formIdx = None, **kwargs):
+        """
+        Estends standard put to copy email as username if auth options.use_username is False
+        :param multiple:
+        :param _check_permissions:
+        :param _base_permissions:
+        :param formIdx:
+        :param kwargs:
+        :return:
+        """
+        if self.copy_email:
+            kwargs['username'] = kwargs['email']
+        super(UserResource,self).put(multiple=multiple, _check_permissions=_check_permissions,_base_permissions=_base_permissions,formIdx=formIdx, **kwargs)
 
 
 class Auth(object):
@@ -26,6 +47,8 @@ class Auth(object):
         label_last_name = 'Family name',
         label_email = 'e-mail',
         label_reset_password = 'Password reset',
+        invalid_email = 'invalid email',
+        email_taken = 'This email is registered yet',
     )
 
     _default_settings = dict(
@@ -43,7 +66,7 @@ class Auth(object):
                   label=self.messages.label_email,
                   requires=[
                         IS_EMAIL(error_message=self.messages.invalid_email),
-                        IS_NOT_IN_DB(db, 'auth_user.email',error_message=self.messages.email_taken),
+                        IS_NOT_IN_DB(db, 'auth_user.email', error_message=self.messages.email_taken),
                         IS_LOWER(),
                   ]),
             Field('username', length=128, default='',
@@ -140,16 +163,15 @@ class Auth(object):
         ag = db.auth_group
 
         # determining field for validation (username or email)
-        userfield = 'username' if self.use_username else 'email'
         password = str(db.auth_user.password.validate(str(password))[0])
 
         # getting user if exixsts
-        user = db.auth_user(password = password, **{userfield : username})
+        user = db.auth_user(password = password, username = username)
         if not user:
-            log.info('user %s is unknown as %s' % (username, userfield))
+            log.info('user %s is unknown ' % username)
             return None, None
         log.info('user %(first_name)s %(last_name)s is accepted' % user)
-        session['user_groups'] = dict(sql(self.db, am.user_id == user.id, am.id, ag.role, as_dict=False, join=ag.on(am.group_id == ag.id)))
+        session['user_groups'] = dict(sql(self.db, am.user_id == user.id, ag.id, ag.role, as_dict=False, join=ag.on(am.group_id == ag.id)))
         session['user_id'] = user.id
         session['user'] = user.as_dict()
         if self.app.realtime_endpoint:
@@ -209,6 +231,17 @@ class Auth(object):
             return redirect(self.app.url_prefix + '/' + self.login_url)
         wrapper.__name__ = func.__name__
         return wrapper
+
+    @property
+    def user(self):
+        """
+        Get user from db or cache user for future calls
+        :return:
+        """
+        id = session['user_id']
+        if not id in user_cache:
+            user_cache[id] = self.db.auth_user[session['user_id']]
+        return user_cache[id]
 
     def accessible_query(self, name, table, user_id=None):
         """

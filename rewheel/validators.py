@@ -37,6 +37,7 @@ except ImportError:
     from gluon.contrib.simplejson.decoder import JSONDecodeError
     JSONErrors += (JSONDecodeError,)
 
+
 __all__ = [
     'ANY_OF',
     'CLEANUP',
@@ -195,7 +196,7 @@ class Validator(object):
         """
         return value
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         raise NotImplementedError
         return (value, None)
 
@@ -255,7 +256,7 @@ class IS_MATCH(Validator):
         self.extract = extract
         self.is_unicode = is_unicode
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if self.is_unicode and not isinstance(value, unicode):
             match = self.regex.search(str(value).decode('utf8'))
         else:
@@ -288,7 +289,7 @@ class IS_EQUAL_TO(Validator):
         self.expression = expression
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if value == self.expression:
             return (value, None)
         return (value, translate(self.error_message))
@@ -317,7 +318,7 @@ class IS_EXPR(Validator):
         self.error_message = error_message
         self.environment = environment or {}
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if callable(self.expression):
             return (value, self.expression(value))
         # for backward compatibility
@@ -368,7 +369,7 @@ class IS_LENGTH(Validator):
         self.minsize = minsize
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if value is None:
             length = 0
             if self.minsize <= length <= self.maxsize:
@@ -424,7 +425,7 @@ class IS_JSON(Validator):
         self.native_json = native_json
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             if self.native_json:
                 simplejson.loads(value) # raises error in case of malformed json
@@ -508,7 +509,7 @@ class IS_IN_SET(Validator):
             items.insert(0, ('', self.zero))
         return items
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if self.multiple:
             ### if below was values = re.compile("[\w\-:]+").findall(str(value))
             if not value:
@@ -644,7 +645,7 @@ class IS_IN_DB(Validator):
             items.insert(0, ('', self.zero))
         return items
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         table = self.dbset.db[self.ktable]
         field = table[self.kfield]
         if self.multiple:
@@ -725,7 +726,7 @@ class IS_NOT_IN_DB(Validator):
     def set_self_id(self, id):
         self.record_id = id
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if isinstance(value, unicode):
             value = value.encode('utf8')
         else:
@@ -739,7 +740,7 @@ class IS_NOT_IN_DB(Validator):
         field = table[fieldname]
         subset = self.dbset(field == value,
                             ignore_common_filters=self.ignore_common_filters)
-        id = self.record_id
+        id = record_id
         if isinstance(id, dict):
             fields = [table[f] for f in id]
             row = subset.select(*fields, **dict(limitby=(0, 1), orderby_on_limitby=False)).first()
@@ -818,7 +819,7 @@ class IS_INT_IN_RANGE(Validator):
         self.error_message = range_error_message(
             error_message, 'an integer', self.minimum, self.maximum)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if regex_isint.match(str(value)):
             v = int(value)
             if ((self.minimum is None or v >= self.minimum) and
@@ -889,7 +890,7 @@ class IS_FLOAT_IN_RANGE(Validator):
         self.error_message = range_error_message(
             error_message, 'a number', self.minimum, self.maximum)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             if self.dot == '.':
                 v = float(value)
@@ -975,7 +976,7 @@ class IS_DECIMAL_IN_RANGE(Validator):
         self.error_message = range_error_message(
             error_message, 'a number', self.minimum, self.maximum)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             if isinstance(value, decimal.Decimal):
                 v = value
@@ -1045,7 +1046,7 @@ class IS_NOT_EMPTY(Validator):
         else:
             self.empty_regex = None
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         value, empty = is_empty(value, empty_regex=self.empty_regex)
         if empty:
             return (value, translate(self.error_message))
@@ -1201,7 +1202,7 @@ class IS_EMAIL(Validator):
         self.forced = forced
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         match = self.regex.match(value)
         if match:
             domain = value.split('@')[1]
@@ -1228,7 +1229,7 @@ class IS_LIST_OF_EMAILS(object):
     def __init__(self, error_message='Invalid emails: %s'):
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         bad_emails = []
         f = IS_EMAIL()
         for email in self.split_emails.findall(value):
@@ -1593,7 +1594,7 @@ class IS_GENERIC_URL(Validator):
     GENERIC_URL = re.compile(r"%[^0-9A-Fa-f]{2}|%[^0-9A-Fa-f][0-9A-Fa-f]|%[0-9A-Fa-f][^0-9A-Fa-f]|%$|%[0-9A-Fa-f]$|%[^0-9A-Fa-f]$")
     GENERIC_URL_VALID = re.compile(r"[A-Za-z0-9;/?:@&=+$,\-_\.!~*'\(\)%#]+$")
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         """
         Args:
             value: a string, the URL to validate
@@ -1894,7 +1895,7 @@ class IS_HTTP_URL(Validator):
             raise SyntaxError("prepend_scheme='%s' is not in allowed_schemes=%s" %
                               (self.prepend_scheme, self.allowed_schemes))
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         """
         Args:
             value: a string, the URL to validate
@@ -2074,7 +2075,7 @@ class IS_URL(Validator):
 
         self.prepend_scheme = prepend_scheme
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         """
         Args:
             value: a unicode or regular string, the URL to validate
@@ -2169,7 +2170,7 @@ class IS_TIME(Validator):
     def __init__(self, error_message='Enter time as hh:mm:ss (seconds, am, pm optional)'):
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             ivalue = value
             value = regex_time.match(value.lower())
@@ -2229,7 +2230,7 @@ class IS_DATE(Validator):
         self.timezone = timezone
         self.extremes = {}
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         ovalue = value
         if isinstance(value, datetime.date):
             if self.timezone is not None:
@@ -2302,7 +2303,7 @@ class IS_DATETIME(Validator):
         self.extremes = {}
         self.timezone = timezone
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         ovalue = value
         if isinstance(value, datetime.datetime):
             return (value, None)
@@ -2378,7 +2379,7 @@ class IS_DATE_IN_RANGE(IS_DATE):
         self.extremes = dict(min=self.formatter(minimum),
                              max=self.formatter(maximum))
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         ovalue = value
         (value, msg) = IS_DATE.__call__(self, value)
         if msg is not None:
@@ -2433,7 +2434,7 @@ class IS_DATETIME_IN_RANGE(IS_DATETIME):
         self.extremes = dict(min=self.formatter(minimum),
                              max=self.formatter(maximum))
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         ovalue = value
         (value, msg) = IS_DATETIME.__call__(self, value)
         if msg is not None:
@@ -2454,7 +2455,7 @@ class IS_LIST_OF(Validator):
         self.maximum = maximum
         self.error_message = error_message or "Enter between %(min)g and %(max)g values"
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         ivalue = value
         if not isinstance(value, list):
             ivalue = [ivalue]
@@ -2490,7 +2491,7 @@ class IS_LOWER(Validator):
 
     """
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         return (value.decode('utf8').lower().encode('utf8'), None)
 
 
@@ -2505,7 +2506,7 @@ class IS_UPPER(Validator):
 
     """
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         return (value.decode('utf8').upper().encode('utf8'), None)
 
 
@@ -2587,7 +2588,7 @@ class IS_SLUG(Validator):
         self.error_message = error_message
         self.keep_underscores = keep_underscores
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if self.check and value != urlify(value, self.maxlen, self.keep_underscores):
             return (value, translate(self.error_message))
         return (urlify(value, self.maxlen, self.keep_underscores), None)
@@ -2611,7 +2612,7 @@ class ANY_OF(Validator):
     def __init__(self, subs):
         self.subs = subs
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         for validator in self.subs:
             value, error = validator(value)
             if error == None:
@@ -2670,7 +2671,7 @@ class IS_EMPTY_OR(Validator):
             if hasattr(self.other, 'set_self_id'):
                 self.other.set_self_id(id)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         value, empty = is_empty(value, empty_regex=self.empty_regex)
         if empty:
             return (self.null, None)
@@ -2707,7 +2708,7 @@ class CLEANUP(Validator):
         self.regex = self.REGEX_CLEANUP if regex is None \
             else re.compile(regex)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         v = self.regex.sub('', str(value).strip())
         return (v, None)
 
@@ -2899,7 +2900,7 @@ class CRYPT(object):
         self.error_message = error_message
         self.salt = salt
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         value = value and value[:self.max_length]
         if len(value) < self.min_length:
             return ('', translate(self.error_message))
@@ -2907,7 +2908,7 @@ class CRYPT(object):
 
 class MD5(object):
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         return hashlib.md5(value).hexdigest(), None
 
 #  entropy calculator for IS_STRONG
@@ -3010,7 +3011,7 @@ class IS_STRONG(object):
         self.error_message = error_message
         self.estring = es   # return error message as string (for doctest)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         failures = []
         if value and len(value) == value.count('*') > 4:
             return (value, None)
@@ -3086,7 +3087,7 @@ class IS_IN_SUBSET(IS_IN_SET):
     def __init__(self, *a, **b):
         IS_IN_SET.__init__(self, *a, **b)
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         values = self.REGEX_W.findall(str(value))
         failures = [x for x in values if IS_IN_SET.__call__(self, x)[1]]
         if failures:
@@ -3142,7 +3143,7 @@ class IS_IMAGE(Validator):
         self.minsize = minsize
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             extension = value.filename.rfind('.')
             assert extension >= 0
@@ -3255,7 +3256,7 @@ class IS_UPLOAD_FILENAME(Validator):
         self.case = case
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             string = value.filename
         except:
@@ -3422,7 +3423,7 @@ class IS_IPV4(Validator):
         self.is_automatic = is_automatic
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         if self.regex.match(value):
             number = 0
             for i, j in zip(self.numbers, value.split('.')):
@@ -3533,7 +3534,7 @@ class IS_IPV6(Validator):
         self.subnets = subnets
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             import ipaddress
         except ImportError:
@@ -3759,7 +3760,7 @@ class IS_IPADDRESS(Validator):
         self.is_ipv6 = is_ipv6
         self.error_message = error_message
 
-    def __call__(self, value):
+    def __call__(self, value, record_id = None):
         try:
             import ipaddress
         except ImportError:

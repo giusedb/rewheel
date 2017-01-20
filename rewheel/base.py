@@ -373,9 +373,8 @@ class TableResource(Resource):
         # print 'permission for %s = ' % self.table._tablename ,set(v if type(v) is str else v[0] for val in permissions.values() for v in val) if permissions else set()
         self.name = self.__doc__ = self.table._tablename
         self.table_args = dict(
-            (f.name, '' if f.default == None else f.default) for f in itemgetter(*table._fields)(table) if
-            f.writable and f.name)
-        del self.table_args['id']
+            (f.name, f.default) for f in itemgetter(*table._fields)(table) if
+            f.writable and f.name and f.default)
 
         # private args management
         if private_args:
@@ -701,15 +700,25 @@ class TableResource(Resource):
                 except Exception as e:
                     row[field] = None
 
-    def validate(self, obj):
+    def validate(self, obj, id=None):
         # input validation
         args = self.table_args.copy()
         args.update(obj)
+
+        # clean all non field attribute
+        for arg in tuple(ifilterfalse(self.table._fields.__contains__,args)):
+            del args[arg]
+
+        id = id or args.get('id')
         self.fix_dates(args)
         # self.table._db = self.db
-        errors = dict(
-            (k, v[1]) for k, v in ((k, self.table[k].validate(v)) for k, v in args.iteritems()) if v[1] and v[1][1])
-        return args, errors
+
+        # validate arguments and build error dict
+        errors = {}
+        for field, value in args.iteritems():
+            args[field], errors[field] = self.table[field].validate(value, id)
+        # clean null error
+        return args, dict((k, v) for k,v in errors.iteritems() if v)
 
     @verb
     def put(self, multiple=None, _check_permissions=True, _base_permissions=True, formIdx = None, **kwargs):
@@ -746,7 +755,7 @@ class TableResource(Resource):
                 self.rt_insert(args, args['id'])
                 id = args['id']
             else:
-                id = self.table.validate_and_insert(**args)['id']
+                id = self.table.insert(**args)['id']
             if self.all_permissions and _base_permissions:
                 auth = current.auth
                 group_id = auth.id_group('user_%s' % auth.user_id)
@@ -770,19 +779,11 @@ class TableResource(Resource):
         id = kwargs.pop('id', None)
         self.fix_dates(kwargs)
 
-        # formIdx = kwargs.pop('formIdx',0)
-        rec = self.table[id]
-        if rec:
-            for k, v in kwargs.items():
-                if k not in self.table:  # or (k != 'id' and rec[k] == v):
-                    del kwargs[k]
-        # self.table._db = self.db
-        errors = dict(
-            (k, v[1]) for k, v in ((k, self.table[k].validate(v)) for k, v in kwargs.iteritems()) if v[1] and v[1][1])
+        kwargs, errors = self.validate(kwargs, id)
 
         if errors:
             raise ValidationError(errors, self.name)
-        else:
+        elif kwargs:
             self.db(self.table.id == id).update(**kwargs)
         return id
 

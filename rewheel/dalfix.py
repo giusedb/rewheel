@@ -2,9 +2,24 @@ import os
 from itertools import ifilter
 
 from flask import _request_ctx_stack, _app_ctx_stack as stack, request
-from pydal import connection, adapters
-from pydal._globals import GLOBAL_LOCKER
+from pydal import connection, adapters, Field
+from pydal._globals import GLOBAL_LOCKER, DEFAULT
 from operator import attrgetter
+
+
+def field_validate(self, value, record_id = None):
+    if not self.requires or self.requires == DEFAULT:
+        return ((value if value != self.map_none else None), None)
+    requires = self.requires
+    if not isinstance(requires, (list, tuple)):
+        requires = [requires]
+    for validator in requires:
+        (value, error) = validator(value, record_id)
+        if error:
+            return (value, error)
+    return ((value if value != self.map_none else None), None)
+
+Field.validate = field_validate
 
 # fix pydal connection bug
 def with_connection_or_connect(func):

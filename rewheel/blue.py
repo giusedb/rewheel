@@ -10,7 +10,7 @@ from .base import Message, TableResource, ResourceManager, ManyToManyRelation, s
 from .utils import current, NestedDict, json_mime
 
 from .exceptions import HTTP, ValidationError
-from .authentication import Auth
+from .authentication import Auth, UserResource
 from .push import share_user
 from time import time
 from logging import getLogger
@@ -149,7 +149,7 @@ class RewheelApplication(Blueprint):
                         if self.debug:
                             return Response(
                                 jdumps(dict(
-                                    exception = str(e),
+                                    exception = str('%s : %s' % (type(e).__name__, e)),
                                     traceback = format_tb(sys.exc_info()[2]))
                                 ),
                                 status=500,
@@ -299,8 +299,14 @@ class RewheelApplication(Blueprint):
         for table in itemgetter('auth_user','auth_group')(db):
             # create permission dict
             permissions = dict((k,mkperms(v)) for k,v in self.auth_permissions[table._tablename].iteritems())
-
-            self.resource_manager.register(TableResource(self,table,permissions=permissions))
+            if table._tablename == 'auth_user':
+                if not self.auth.use_username:
+                    table.username.readable = False
+                    table.username.writable = False
+                self.resource_manager.register(UserResource(self,table,permissions=permissions))
+                self.resource_manager.resource('auth_user').copy_email = not self.auth.use_username
+            else:
+                self.resource_manager.register(TableResource(self,table,permissions=permissions))
 
         log.debug('setting auth_membership as ManyToMany (auth_user,auth_group)')
         self.resource_manager.register_m2m( ManyToManyRelation (
