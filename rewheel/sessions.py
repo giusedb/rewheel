@@ -10,6 +10,7 @@ from flask.sessions import SessionInterface, SessionMixin
 from flask import request
 from .import_hook import jloads
 from .utils import json_mime
+from .storages import NestedDict
 
 
 
@@ -37,8 +38,15 @@ class RedisSessionInterface(SessionInterface):
     serializer = pickle
     session_class = RedisSession
 
-    def __init__(self, redis=None, prefix='session:'):
-        if redis is None:
+    def __init__(self, config=None, redis=None, prefix='session:'):
+        # if no redis is provided and redis is in configurarion
+        # i try to create a redis instance from provided configuration
+        if 'redis' in config and not redis:
+            redis_args = config['redis']
+            if type(redis_args) is NestedDict:
+                redis_args = redis_args.main
+            redis = Redis(**redis_args)
+        elif redis is None:
             redis = Redis()
         self.redis = redis
         self.prefix = prefix

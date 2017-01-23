@@ -90,6 +90,10 @@ class NestedDict(object):
             r.update(d)
         return r
 
+    def __dict__(self):
+        return self.main
+
+
     def __iter__(self):
         return iter(self.keys())
 

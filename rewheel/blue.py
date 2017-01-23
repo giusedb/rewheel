@@ -275,7 +275,9 @@ class RewheelApplication(Blueprint):
         self.realtime_endpoint = config.get('realtime_endpoint')
         self.realtime_queue = config.get('realtime_queue_name')
         if self.realtime_queue and self.realtime_endpoint:
-            redis_args = dict((k,v) for k,v in config.items() if config.get('redis'))
+            redis_args = config.get('redis',{})
+            if type(redis_args) is NestedDict:
+                redis_args = redis_args.main
             redis_args.setdefault('host', 'localhost')
             redis_args.setdefault('port', 6379)
             log.info('Starting app %s using realtime on %s:%s with queue %s' % (self.name,redis_args['host'], redis_args['port'], self.realtime_queue))
