@@ -17,6 +17,7 @@ setup(name='rewheel',
       keywords="web realtime realtime-web full-realtime rest restful",
       install_requires=[
           'Flask',
+          'flask_script',
           'pyDAL',
           'redis',
           'ujson',

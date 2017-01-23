@@ -1,4 +1,5 @@
 Flask
+flask_script
 pyDAL
 redis
 ujson
