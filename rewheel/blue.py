@@ -17,7 +17,7 @@ from logging import getLogger
 from traceback import format_tb
 from flask_cors import CORS, cross_origin
 
-
+last_build = time()
 log = getLogger('rewheel')
 
 class ReturnObject:
@@ -212,6 +212,7 @@ class RewheelApplication(Blueprint):
         return Response(jdumps(dict(
             token=token,
             timestamp=time(),
+            last_build=last_build,
             user_id=user_id,
             apiEndPoint=self.url_prefix,
             templates =  '%s/templates/' % (self.static_url_path or '/static'),
