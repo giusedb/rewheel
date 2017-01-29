@@ -209,7 +209,7 @@ class Resource(object):
 
 
 def unallowed(*args, **kwargs):
-    raise Unauthorized(current.T('not authorized'))
+    raise Unauthorized( T('not authorized'))
 
 
 for func_name in ('get', 'put', 'post', 'delete'):
@@ -695,10 +695,11 @@ class TableResource(Resource):
         """
         for field in self.date_fields:
             if field in row:
-                try:
-                    row[field] = datetime.fromtimestamp(float(row[field]))
-                except Exception as e:
-                    row[field] = None
+                if not type(row[field]) is datetime:
+                    try:
+                        row[field] = datetime.fromtimestamp(float(row[field]))
+                    except Exception as e:
+                        row[field] = None
 
     def validate(self, obj, id=None, isNew=False):
         # input validation
