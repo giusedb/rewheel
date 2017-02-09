@@ -360,7 +360,7 @@ class TableResource(Resource):
         # self.traversing = set()
         self.all_permissions = set()
         table._resource = self
-        self.realtime_enabled = realtime_endpoint != False
+        self.realtime_enabled = False
         self.table = table
         self.resources_has = {}
         pt = db.auth_permission
@@ -429,6 +429,7 @@ class TableResource(Resource):
 
     def enable_realtime(self):
         if not self.realtime_enabled:
+            log.debug('setting realtime for %s resource' % self.name)
             self.realtime_enabled = True
             self.table._after_insert.append(self.rt_insert)
             self.table._after_update.append(self.rt_after_update)
