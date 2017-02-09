@@ -192,7 +192,7 @@ class ResourceManager(object):
 
 class Resource(object):
     def __init__(self, name, realtime_endpoint=None):
-        if hasattr(self,'enable_realtime'):
+        if getattr(self,'enable_realtime',False):
             self.enable_realtime()
 
     def get(self, id=None, ids=None):
@@ -360,7 +360,7 @@ class TableResource(Resource):
         # self.traversing = set()
         self.all_permissions = set()
         table._resource = self
-        self.realtime_enabled = False
+        self.realtime_enabled = realtime_endpoint != False
         self.table = table
         self.resources_has = {}
         pt = db.auth_permission
