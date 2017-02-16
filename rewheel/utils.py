@@ -61,6 +61,19 @@ def verb(func):
     return func
 
 
+def custom_verb(func):
+    """
+    verb with autoreturn
+    :param func:
+    :return:
+    """
+    def w(*a,**b):
+        ret = func(*a,**b)
+        current.response.text = ret
+        return ret
+    w.verb = True
+    return w
+
 def jsoned(func):
     def x():
         try:
