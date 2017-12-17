@@ -33,7 +33,10 @@ class NestedDict(object):
         return self.main.__repr__()
 
     def __getitem__(self, item):
-        return self.main.get(item) or self.parent[item]
+        if item in self.main:
+            return self.main[item]
+        else:
+            return self.parent[item]
 
     def __setitem__(self, key, value):
         if key in self.main:
