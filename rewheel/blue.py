@@ -1,7 +1,7 @@
-import sys
+import sys, os
 from itertools import ifilter, imap
 from operator import itemgetter, attrgetter
-from flask import Blueprint, request, Response, redirect
+from flask import Blueprint, request, Response, redirect, current_app, send_from_directory
 from redis import Redis
 
 from .import_hook import jdumps, jloads
@@ -80,6 +80,12 @@ class RewheelApplication(Blueprint):
             Useless
             :return:
             """
+            # getting this blueprint application
+            app = current_app.blueprints.get(request.blueprint)
+            if app:
+                # if this application has a file named index.html it will be served
+                if app.static_folder and os.path.exists('%s%sindex.html' % (app._static_folder, os.sep)):
+                    return send_from_directory(app.static_folder, 'index.html')
             return 'rewheel main'
 
         @self.route('/api/logout', methods=['POST'])
@@ -91,6 +97,13 @@ class RewheelApplication(Blueprint):
             else:
                 return Response(jdumps(dict(result = 'Logged out')),200)
 
+        # @self.route('/static/<path:path>')
+        # def serve_static(path):
+        #     filename = '%s%s%s' % (self.static_folder, os.sep, path)
+        #     if self.static_folder and os.path.exists(filename) and os.path.isfile(filename):
+        #         return send_from_directory(self.static_folder, path)
+        #     else:
+        #         return Response('File not found',404)
 
         @self.route('/api/login')
         def login_get():
@@ -179,6 +192,11 @@ class RewheelApplication(Blueprint):
             share_user(self)
             return ''
 
+        @self.route(r'/api/resources', methods= ['GET', 'POST'])
+        @cross_origin()
+        def get_resources():
+            return jdumps(filter(lambda x : type(x) is str and not x.startswith('auth_'), self.resource_manager.get_resources()))
+
     @property
     def config(self):
         return self._config
@@ -194,9 +212,11 @@ class RewheelApplication(Blueprint):
 
     def register(self, app, options, first_registration=False):
         self.main_app = app
+        if 'config' in options:
+            config = NestedDict(options['config'])
         with app.app_context():
-            self.initialize_wheel(**options['config'])
-        super(RewheelApplication,self).register(app,options,first_registration)
+            self.initialize_wheel(**config)
+        super(RewheelApplication,self).register(app,config.get(self.name,{}) ,first_registration)
 
     def connection_status(self, token=None, user_id=None):
         """
