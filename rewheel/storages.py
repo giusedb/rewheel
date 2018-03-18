@@ -36,7 +36,7 @@ class NestedDict(object):
         if item in self.main:
             return self.main[item]
         return self.parent[item]
-
+ 
     def __setitem__(self, key, value):
         if key in self.main:
             self.main[key] = value
