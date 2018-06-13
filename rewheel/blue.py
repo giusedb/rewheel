@@ -129,8 +129,9 @@ class RewheelApplication(Blueprint):
             # is user is accepted return token
             return self.connection_status(token=str(token), user_id = user_id)
 
-        @self.route(r'/<resource_name>/<verb>/<path:args>',methods = ['GET','POST','OPTIONS'])
-        @self.route(r'/<resource_name>/<verb>',methods = ['GET','POST','OPTIONS'])
+        @self.route(r'/<resource_name>.<verb>/<path:args>',methods = ['GET','POST','OPTIONS'])
+        @self.route(r'/<resource_name>.<verb>',methods = ['GET','POST','OPTIONS'])
+        @self.route(r'/<resource_name>/<verb>.<path:args>', methods=['GET', 'POST', 'OPTIONS'])
         @cross_origin()
         @self.auth.requires_login
         def restful(resource_name, verb, args = ''):
