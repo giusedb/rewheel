@@ -60,13 +60,23 @@ class RedisSessionInterface(SessionInterface):
         return timedelta(days=1)
 
     def open_session(self, app, request):
+        sid = None
         if request.content_type == 'text/plain' and request.data:
-            request._cached_json = jloads(request.data)
-        sid = request.values.get('__token__')
+            try:
+                json_data = jloads(request.data)
+                sid = json_data.pop('__token__',None)
+                if sid:
+                    request.json = json_data
+            except Exception as e:
+                # log is not json
+                pass
+
+        sid = sid or request.values.get('__token__')
         if not sid:
-            j = request.get_json()
+            j = request.get_json(cache=False)
             if j:
                 sid = j.pop('__token__', None)
+                request.json = j
         application = request.blueprint
         if not sid:
             sid = self.generate_sid()

@@ -147,7 +147,7 @@ class RewheelApplication(Blueprint):
                 if method:
                     current.response = ReturnObject()
                     try:
-                        kwargs = self.get_args(request)
+                        args, kwargs = self.get_args(request)
                         method(*(args.split('/') if args else ()), **kwargs)
                         # db.commit()
                         self.db._adapter.close()
@@ -244,13 +244,13 @@ class RewheelApplication(Blueprint):
     def get_args(self,request):
         args = request.get_json()
         if args.__class__ is dict:
-            return args
+            return None, args
         args = request.values.get('args')
         if args:
-            return jloads(args)
+            return None, jloads(args)
         if not args:
             args = dict(request.values.iteritems())
-        return args
+        return None, args
 
 
     def define_db(self,func):
